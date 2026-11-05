@@ -1,16 +1,22 @@
-#!bin/bash
-if[ $# != 3 ] then
+#!/bin/bash
+
+if [ $# != 3 ]
+then
 	exit 1
 else
-	if[ ! -f $1 ] then
+	if [ ! -f $1 ]
+then
 		exit 1
 	else
-		if [[ $2 = "ESTADO" || $2 = "AREA1" || $2="AREA2"]] then
-			if [[ $3 = "ESTADO0" || $3 = "ESTADO1" ]] then
-				echo $(grep $2 $1 | ec -l)
+		if [[ $2 = "AREA0" || $2 = "AREA1" || $2 = "AREA2" ]]
+		then
+			if [[ $3 = "ESTADO0" || $3 = "ESTADO1" ]]
+			then
+				#echo "TOTAL=" $()
+				echo "TOTAL=" $(grep $2 $1 | wc -l)
 			else
 				echo -e "El estado no existe"
-				eit 1
+				exit 1
 			fi
 		else
 			echo -e "El area no existe"
@@ -18,5 +24,7 @@ else
 		fi
 	fi
 fi
+
+
 
 exit 0
