@@ -12,8 +12,9 @@ then
 		then
 			if [[ $3 = "ESTADO0" || $3 = "ESTADO1" ]]
 			then
-				#echo "TOTAL=" $()
-				echo "TOTAL=" $(grep $2 $1 | wc -l)
+				echo "TOTAL=" $(wc -l < ./datos/datos_tp1.txt)
+				echo "AREA="$2
+				echo "CANTIDAD_AREA=" $(grep $1 $1 |  wc -l)
 			else
 				echo -e "El estado no existe"
 				exit 1
