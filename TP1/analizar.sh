@@ -11,7 +11,7 @@ then
 		if [[ $2 = "AREA0" || $2 = "AREA1" || $2 = "AREA2" ]]
 		then
 			if [[ $3 = "ESTADO0" || $3 = "ESTADO1" ]]
-			then
+			then {
 				echo "TOTAL="$(wc -l < ./datos/datos_tp1.txt)
 				echo "AREA="$2
 				echo "CANTIDAD_AREA="$(grep $2 $1 |  wc -l)
@@ -24,7 +24,8 @@ then
 					sumatoria=$((sumatoria + i)) 
 				done 
 				echo "SUMA_AREA_ESTADO="$sumatoria
-				
+				} > ./resultados/resultado.txt
+				$(cp ./resultados/resultado.txt ./respaldo/resultado.bak)
 			else
 				echo -e "El estado no existe"
 				exit 1
