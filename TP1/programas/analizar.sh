@@ -12,7 +12,7 @@ then
 		then
 			if [[ $3 = "ESTADO0" || $3 = "ESTADO1" ]]
 			then {
-				echo "TOTAL="$(wc -l < ./datos/datos_tp1.txt)
+				echo "TOTAL="$(wc -l < $1)
 				echo "AREA="$2
 				echo "CANTIDAD_AREA="$(grep $2 $1 |  wc -l)
 				echo "ESTADO="$3
