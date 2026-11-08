@@ -57,7 +57,7 @@ int main (int argc, char *argv[]) {
 	//Escribe en pantalla
 	write(STDOUT_FILENO, res_str, len);
 
-	int fd_out = open("resultados/analisis_c.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	int fd_out = open("../resultados/analisis_c.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 	if (fd_out < 0){
 		perror("Error en la creacion de resultados/analisis_c.txt");
 		close(fd);
@@ -77,7 +77,7 @@ int main (int argc, char *argv[]) {
 	char p20[20];
 	ssize_t bytes_p20 = read (fd, p20, 20);
 	if (bytes_p20 > 0){
-		int fd_p20 = open("resultados/primeros20.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		int fd_p20 = open("../resultados/primeros20.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if(fd_p20 >= 0) {
 			write(fd_p20, p20, bytes_p20);
 			close(fd_p20);

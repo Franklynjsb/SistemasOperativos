@@ -24,8 +24,8 @@ then
 					sumatoria=$((sumatoria + i)) 
 				done 
 				echo "SUMA_AREA_ESTADO="$sumatoria
-				} > ./resultados/resultado.txt
-				$(cp ./resultados/resultado.txt ./respaldo/resultado.bak)
+				} > ../resultados/resultado.txt
+				$(cp ../resultados/resultado.txt ../respaldo/resultado.bak)
 			else
 				echo -e "El estado no existe"
 				exit 1
