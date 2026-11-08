@@ -10,7 +10,7 @@ int main (int argc, char *argv[]){
 		return 1;
 	}
 	
-	if(strcmp(argv[2], "AREA0") != 0 && strcmp(argv[2], "AREA1")!=0 && strcmp(arv[2], "AREA2")!= 0){
+	if(strcmp(argv[2], "AREA0") != 0 && strcmp(argv[2], "AREA1")!=0 && strcmp(argv[2], "AREA2")!= 0){
 		fprintf(stderr, "Error, area incorrecta\n");
 		return 1;
 	}
@@ -26,8 +26,8 @@ int main (int argc, char *argv[]){
 		perror("Error al realizar el fork() del hijo 1");
 		return 1;
 	}
-	
-	if (pint1 == 0){
+	//pint1 == 0
+	if (pid1 == 0){
 		close(pipefd[0]);
 		printf("HIJO1_1 PID: %d, PPID: %d\n", getpid(), getppid());
 		
@@ -80,7 +80,7 @@ int main (int argc, char *argv[]){
 		close(pipefd[0]);
 		close(pipefd[1]);
 
-		int fd_out = open (resultados/exec_resultados.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		int fd_out = open ("resultados/exec_resultado.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 		if (fd_out == -1){
 			perror("Error al ejecutar dup2()");
 			close(fd_out);
@@ -94,7 +94,7 @@ int main (int argc, char *argv[]){
 		}
 		close(fd_out);
 		
-		char *args[] = {"grep", arg[2], arv[1], NULL};
+		char *args[] = {"grep", argv[2], argv[1], NULL};
 		execvp("grep", args);
 		perror("Error en la ejecucion de execvp()");
 		return 1; //Termina el hijo 2 por fallo
@@ -104,12 +104,12 @@ int main (int argc, char *argv[]){
 	
 	int cant_recibida=0;
 	if (read(pipefd[0], &cant_recibida, sizeof(cant_recibida)) == -1){
-		perror "Error al leer de la tuberia en el padre");
+		perror("Error al leer de la tuberia en el padre");
 	}
 	close(pipefd[0]);
 	
-	wait(pid1,NULL,0);
-	wait(pid2, NULL, 0);
+	waitpid(pid1, NULL, 0);
+	waitpid(pid2, NULL, 0);
 	
 	printf("Cantidad recibida del hijo: %d\n", cant_recibida);
 	return 0; //Fin padre, fin final

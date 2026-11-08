@@ -9,7 +9,7 @@ int main (int argc, char *argv[]) {
 
 	//Verificacion de parametros de entrada
 	if (argc != 2){
-		write(STDERR_FILENO, "Sin uso correcto de parámetros", 31);
+		write(STDERR_FILENO, "Sin uso correcto de parámetros\n", 31);
 		return 1;
 	}
 	
