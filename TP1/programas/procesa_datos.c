@@ -1,201 +1,161 @@
-/*
- * procesa_datos.c - TP1 Sistemas Operativos UTN FRSF 2026
- * Uso: ./procesa_datos <archivo> <area>
- *
- * Problema 5: hijo 1 cuenta registros del area y los envia al padre por pipe.
- * Problema 6: hijo 2 ejecuta grep (exec) con stdout redirigido por dup2()
- *             hacia resultados/exec_resultado.txt.
- */
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <errno.h>
+#include <unistd.h>   // Para _exit(), pipe(), fork(), etc.
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
+#include <string.h>
+#include <sys/stat.h> // Para stat() y S_ISREG
+#include <errno.h>    // Para EEXIST
 
-#define BUFSZ 4096
-#define LINEMAX 256
+int main (int argc, char *argv[]){
+	if (argc != 3){
+		fprintf(stderr, "Uso incorrecto del ejecutable, se espera archivo seguido de area\n");
+		return 1;
+	}
 
-/* close() verificado: informa con perror() si falla. */
-static void cerrar(int fd, const char *que)
-{
-    if (close(fd) == -1)
-        perror(que);
-}
+	if(strcmp(argv[2], "AREA0") != 0 && strcmp(argv[2], "AREA1")!=0 && strcmp(argv[2], "AREA2")!= 0){
+		fprintf(stderr, "Error, area incorrecta\n");
+		return 1;
+	}
 
-/* Cuenta registros cuyo campo AREA coincide con ";<area>;" */
-static long contar_area(const char *ruta, const char *area)
-{
-    char patron[32];
-    snprintf(patron, sizeof(patron), ";%s;", area);
+	// Validar si es archivo regular
+	struct stat st;
+	if (stat(argv[1], &st) == -1) {
+		perror("Error en stat()");
+		return 1;
+	}
+	if (!S_ISREG(st.st_mode)) {
+		fprintf(stderr, "ERROR: el parámetro no es un archivo regular\n");
+		return 1;
+	}
 
-    int fd = open(ruta, O_RDONLY);
-    if (fd == -1) {
-        perror("open (hijo 1)");
-        return -1;
-    }
+	// Crear directorio resultados si no existe
+	if (mkdir("../resultados", 0755) == -1 && errno != EEXIST) {
+		perror("Advertencia: problema al crear el directorio resultados");
+	}
 
-    char buf[BUFSZ];
-    char linea[LINEMAX];
-    size_t llen = 0;
-    long cuenta = 0;
-    ssize_t n, i;
+	//Armar patrón exacto para evitar contar falsos positivos
+	char patron[32];
+	snprintf(patron, sizeof(patron), ";%s;", argv[2]);
 
-    while ((n = read(fd, buf, sizeof(buf))) > 0) {
-        for (i = 0; i < n; i++) {
-            if (buf[i] == '\n') {
-                linea[llen] = '\0';
-                if (strstr(linea, patron) != NULL)
-                    cuenta++;
-                llen = 0;
-            } else if (llen < LINEMAX - 1) {
-                linea[llen++] = buf[i];
-            }
-        }
-    }
-    if (n == -1) {
-        perror("read (hijo 1)");
-        cerrar(fd, "close");
-        return -1;
-    }
-    cerrar(fd, "close");
-    return cuenta;
-}
+	int pipefd[2];
+	if(pipe(pipefd) == -1){
+		perror("Error al crear la tuberia con pipe()");
+		return 1;
+	}
 
-int main(int argc, char *argv[])
-{
-    if (argc != 3) {
-        fprintf(stderr, "Uso: %s <archivo> <area>\n", argv[0]);
-        return 1;
-    }
+	pid_t pid1=fork();
+	if(pid1 == -1) {
+		perror("Error al realizar el fork() del hijo 1");
+		return 1;
+	}
 
-    const char *ruta = argv[1];
-    const char *area = argv[2];
+	// HIJO 1
+	if (pid1 == 0){
+		close(pipefd[0]);
+		printf("HIJO1 PID: %d, PPID: %d\n", getpid(), getppid());
+		fflush(stdout);
 
-    /* ---- Validacion de parametros ---- */
-    if (strcmp(area, "AREA0") != 0 && strcmp(area, "AREA1") != 0 &&
-        strcmp(area, "AREA2") != 0) {
-        fprintf(stderr, "ERROR: area invalida '%s' (AREA0, AREA1 o AREA2)\n", area);
-        return 1;
-    }
-    struct stat st;
-    if (stat(ruta, &st) == -1) {
-        perror("stat");
-        return 1;
-    }
-    if (!S_ISREG(st.st_mode)) {
-        fprintf(stderr, "ERROR: '%s' no es un archivo regular\n", ruta);
-        return 1;
-    }
-    if (mkdir("resultados", 0755) == -1 && errno != EEXIST) {
-        perror("mkdir resultados");
-        return 1;
-    }
+		int fd = open(argv[1], O_RDONLY);
+		if (fd == -1){
+			perror("Error al abrir el archivo en hijo 1");
+			_exit(1); // Usar _exit() para no usar return
+		}
 
-    /* ================= Problema 5: pipe + fork ================= */
-    int fd[2];
-    if (pipe(fd) == -1) {
-        perror("pipe");
-        return 1;
-    }
+		int cantidad=0;
+		char buffer[1024];
+		char linea[256];
+		int idx = 0;
+		ssize_t bytes;
 
-    pid_t pid1 = fork();
-    if (pid1 == -1) {
-        perror("fork");
-        cerrar(fd[0], "close");
-        cerrar(fd[1], "close");
-        return 1;
-    }
+		while ((bytes = read(fd, buffer, sizeof(buffer))) > 0){
+			for(ssize_t i=0; i<bytes; i++){
+				if(buffer[i] == '\n'){
+					linea[idx] = '\0';
+					// Buscar el patrón delimitado (ej. ";AREA1;")
+					if (strstr(linea, patron) != NULL){
+						cantidad++;
+					}
+					idx=0;
+				}else {
+					if (idx < (int)sizeof(linea) -1) {
+						linea[idx++] = buffer[i];
+					}
+				}
+			}
+		}
+		if (bytes == -1) {
+			perror("Error al leer el archivo en hijo 1");
+			close(fd);
+			_exit(1);
+		}
+		close(fd);
 
-    if (pid1 == 0) {
-        /* ---------- HIJO 1 ---------- */
-        cerrar(fd[0], "close");                       /* extremo de lectura: no se usa */
-        long cuenta = contar_area(ruta, area);
-        if (cuenta < 0) {
-            cerrar(fd[1], "close");
-            _exit(1);
-        }
-        if (write(fd[1], &cuenta, sizeof(cuenta)) != (ssize_t)sizeof(cuenta)) {
-            perror("write (pipe)");
-            cerrar(fd[1], "close");
-            _exit(1);
-        }
-        printf("Hijo 1: PID=%d, PPID=%d\n", (int)getpid(), (int)getppid());
-        fflush(stdout);
-        cerrar(fd[1], "close");
-        _exit(0);
-    }
+		if (write(pipefd[1], &cantidad, sizeof(cantidad)) != sizeof(cantidad)) {
+			perror("Error al escribir en la tuberia");
+			_exit(1);
+		}
+		close(pipefd[1]);
+		_exit(0); // Fin correcto del hijo
+	}
 
-    /* ---------- PADRE ---------- */
-    cerrar(fd[1], "close");                           /* extremo de escritura: no se usa */
-    long recibido = 0;
-    ssize_t r = read(fd[0], &recibido, sizeof(recibido));
-    if (r == -1) {
-        perror("read (pipe)");
-    } else if (r != (ssize_t)sizeof(recibido)) {
-        fprintf(stderr, "ERROR: el hijo 1 no envio el resultado completo\n");
-    }
-    cerrar(fd[0], "close");
+	pid_t pid2 = fork();
+	if (pid2 == -1) {
+		perror("Error al ejecutar fork() para el hijo 2");
+		return 1;
+	}
 
-    int status1;
-    if (waitpid(pid1, &status1, 0) == -1) {
-        perror("waitpid (hijo 1)");
-        return 1;
-    }
-    if (r == (ssize_t)sizeof(recibido))
-        printf("Cantidad recibida del hijo: %ld\n", recibido);
-    if (!WIFEXITED(status1) || WEXITSTATUS(status1) != 0) {
-        fprintf(stderr, "ERROR: el hijo 1 finalizo con error\n");
-        return 1;
-    }
+	// HIJO 2
+	if (pid2 == 0) {
+		close(pipefd[0]);
+		close(pipefd[1]);
 
-    /* ================= Problema 6: exec + dup2 ================= */
-    pid_t pid2 = fork();
-    if (pid2 == -1) {
-        perror("fork (hijo 2)");
-        return 1;
-    }
+		int fd_out = open("../resultados/exec_resultado.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
+		if (fd_out == -1){
+			perror("Error al abrir ../resultados/exec_resultado.txt");
+			_exit(1);
+		}
 
-    if (pid2 == 0) {
-        /* ---------- HIJO 2 ---------- */
-        int fout = open("resultados/exec_resultado.txt",
-                        O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fout == -1) {
-            perror("open exec_resultado.txt");
-            _exit(1);
-        }
-        if (dup2(fout, STDOUT_FILENO) == -1) {   /* stdout -> archivo */
-            perror("dup2");
-            cerrar(fout, "close");
-            _exit(1);
-        }
-        cerrar(fout, "close");                        /* ya duplicado en fd 1 */
+		if (dup2(fd_out, STDOUT_FILENO) == -1){
+			perror("Error al ejecutar dup2()");
+			close(fd_out);
+			_exit(1);
+		}
+		close(fd_out);
 
-        char patron[32];
-        snprintf(patron, sizeof(patron), ";%s;", area);
-        execlp("grep", "grep", "-F", patron, ruta, (char *)NULL);
+		// Se usa execlp buscando el patrón exacto (-F) en base al snprintf de arriba
+		execlp("grep", "grep", "-F", patron, argv[1], (char *)NULL);
 
-        /* Solo se llega aqui si exec fallo */
-        perror("execlp grep");
-        _exit(127);
-    }
+		// Si execlp falla, llega hasta acá
+		perror("Error en la ejecucion de execlp()");
+		_exit(1);
+	}
 
-    int status2;
-    if (waitpid(pid2, &status2, 0) == -1) {
-        perror("waitpid (hijo 2)");
-        return 1;
-    }
-    if (WIFEXITED(status2) && WEXITSTATUS(status2) == 0) {
-        printf("Hijo 2 (exec grep) finalizo correctamente. "
-               "Salida en resultados/exec_resultado.txt\n");
-    } else {
-        fprintf(stderr, "ERROR: el hijo 2 (exec) finalizo con error (status=%d)\n",
-                WIFEXITED(status2) ? WEXITSTATUS(status2) : -1);
-        return 1;
-    }
+	// PADRE
+	close(pipefd[1]);
 
-    return 0;
+	int cant_recibida=0;
+	ssize_t n = read(pipefd[0], &cant_recibida, sizeof(cant_recibida));
+	if (n == -1){
+		perror("Error al leer de la tuberia en el padre");
+	}
+	close(pipefd[0]);
+
+	int status1, status2;
+	waitpid(pid1, &status1, 0);
+	waitpid(pid2, &status2, 0);
+
+	// Si el hijo 1 fallo, no llego a enviar el dato: no mostrar un 0 engañoso
+	if (n != sizeof(cant_recibida) || !WIFEXITED(status1) || WEXITSTATUS(status1) != 0) {
+		fprintf(stderr, "Error: el hijo 1 no pudo calcular la cantidad\n");
+		return 1;
+	}
+
+	if (!WIFEXITED(status2) || WEXITSTATUS(status2) != 0) {
+		fprintf(stderr, "Error: el hijo 2 (exec) finalizo con error\n");
+		return 1;
+	}
+
+	printf("Cantidad recibida del hijo: %d.\n", cant_recibida);
+	return 0; // Fin padre
 }
