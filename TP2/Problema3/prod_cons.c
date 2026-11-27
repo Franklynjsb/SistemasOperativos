@@ -73,14 +73,14 @@ int main(void) {
     /* Evita que se mezclen lineas de stdout entre padre e hijo */
     setvbuf(stdout, NULL, _IOLBF, 0);
 
-    /* 1. Generar clave IPC */
+    /*Generar clave IPC */
     clave = ftok(RUTA_CLAVE, PROJ_ID);
     if (clave == -1) {
         perror("ftok");
         exit(1);
     }
 
-    /* 2. Crear y adjuntar segmento de memoria compartida */
+    /* Crear y adjuntar segmento de memoria compartida */
     shmid = shmget(clave, sizeof(struct buffer_circular), 0666 | IPC_CREAT);
     if (shmid == -1) {
         perror("shmget");
@@ -99,7 +99,7 @@ int main(void) {
     buf->out = 0;
     buf->count = 0;
 
-    /* 3. Crear e inicializar el conjunto de 3 semaforos */
+    /* Crear e inicializar el conjunto de 3 semaforos */
     semid = semget(clave, 3, 0666 | IPC_CREAT);
     if (semid == -1) {
         perror("semget");
@@ -112,7 +112,7 @@ int main(void) {
     inicializar_sem(semid, SEM_LLENO, 0);          /* 0 elementos disponibles */
     inicializar_sem(semid, SEM_VACIO, TAM_BUFFER); /* 5 lugares libres */
 
-    /* 4. Crear procesos: hijo = Productor, padre = Consumidor */
+    /* Crear procesos: hijo = Productor, padre = Consumidor */
     pid = fork();
     if (pid == -1) {
         perror("fork");

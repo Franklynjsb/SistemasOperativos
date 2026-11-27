@@ -59,21 +59,21 @@ int main(void) {
     union semun arg;
     pid_t pid1, pid2;
 
-    /* 1. Generar clave IPC */
+    /* Generar clave IPC */
     clave = ftok(RUTA_CLAVE, PROJ_ID);
     if (clave == -1) {
         perror("ftok");
         exit(1);
     }
 
-    /* 2. Crear segmento de memoria compartida */
+    /* Crear segmento de memoria compartida */
     shmid = shmget(clave, sizeof(struct datos_compartidos), 0666 | IPC_CREAT);
     if (shmid == -1) {
         perror("shmget");
         exit(1);
     }
 
-    /* 3. Adjuntar memoria compartida al proceso padre */
+    /* Adjuntar memoria compartida al proceso padre */
     shm = (struct datos_compartidos *)shmat(shmid, NULL, 0);
     if (shm == (void *)-1) {
         perror("shmat");
@@ -82,7 +82,7 @@ int main(void) {
     }
     shm->indice = 0;
 
-    /* 4. Crear conjunto de 2 semaforos */
+    /* Crear conjunto de 2 semaforos */
     semid = semget(clave, 2, 0666 | IPC_CREAT);
     if (semid == -1) {
         perror("semget");
@@ -91,7 +91,7 @@ int main(void) {
         exit(1);
     }
 
-    /* 5. Inicializar semaforos: Hijo 1 arranca en 1, Hijo 2 en 0 */
+    /* Inicializar semaforos: Hijo 1 arranca en 1, Hijo 2 en 0 */
     arg.val = 1;
     if (semctl(semid, SEM_HIJO1, SETVAL, arg) == -1) {
         perror("semctl SEM_HIJO1");
@@ -103,7 +103,7 @@ int main(void) {
         exit(1);
     }
 
-    /* 6. Crear Hijo 1 (impares: 1, 3, 5, 7, 9) */
+    /* Crear Hijo 1 (impares: 1, 3, 5, 7, 9) */
     pid1 = fork();
     if (pid1 == -1) {
         perror("fork hijo 1");
@@ -120,7 +120,7 @@ int main(void) {
         exit(0);
     }
 
-    /* 7. Crear Hijo 2 (pares: 2, 4, 6, 8, 10) */
+    /* Crear Hijo 2 (pares: 2, 4, 6, 8, 10) */
     pid2 = fork();
     if (pid2 == -1) {
         perror("fork hijo 2");
@@ -137,18 +137,18 @@ int main(void) {
         exit(0);
     }
 
-    /* 8. El padre espera a que terminen ambos hijos */
+    /* El padre espera a que terminen ambos hijos */
     if (waitpid(pid1, NULL, 0) == -1) perror("waitpid 1");
     if (waitpid(pid2, NULL, 0) == -1) perror("waitpid 2");
 
-    /* 9. Mostrar la secuencia final */
+    /* Mostrar la secuencia final */
     printf("Secuencia final:");
     for (int i = 0; i < TAM_SECUENCIA; i++) {
         printf(" %d", shm->secuencia[i]);
     }
     printf("\n");
 
-    /* 10. Desadjuntar y liberar recursos IPC */
+    /* Desadjuntar y liberar recursos IPC */
     if (shmdt(shm) == -1) perror("shmdt");
     if (shmctl(shmid, IPC_RMID, NULL) == -1) perror("shmctl IPC_RMID");
     if (semctl(semid, 0, IPC_RMID) == -1) perror("semctl IPC_RMID");

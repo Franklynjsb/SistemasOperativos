@@ -32,14 +32,14 @@ int main(void) {
         exit(1);
     }
 
-    /* 1. Generar la clave a partir de la carpeta actual y la letra 'A' */
+    /* Generar la clave a partir de la carpeta actual y la letra 'A' */
     clave = ftok(RUTA_CLAVE, PROJ_ID);
     if (clave == -1) {
         perror("ftok");
         exit(1);
     }
 
-    /* 2. Crear la cola de mensajes (o abrirla si ya existe) */
+    /* Crear la cola de mensajes (o abrirla si ya existe) */
     msqid = msgget(clave, 0666 | IPC_CREAT);
     if (msqid == -1) {
         perror("msgget");
@@ -48,7 +48,7 @@ int main(void) {
 
     printf("Servidor iniciado (msqid = %d). Esperando peticiones... (Ctrl+C para salir)\n", msqid);
 
-    /* 3. Bucle principal: recibir peticiones, calcular y responder */
+    /* Bucle principal: recibir peticiones, calcular y responder */
     while (seguir) {
         if (msgrcv(msqid, &msg, tam_datos, TIPO_PETICION, 0) == -1) {
             if (errno == EINTR) {
@@ -78,7 +78,7 @@ int main(void) {
         }
     }
 
-    /* 4. Eliminar la cola de mensajes antes de terminar */
+    /* Eliminar la cola de mensajes antes de terminar */
     if (msgctl(msqid, IPC_RMID, NULL) == -1) {
         perror("msgctl");
         exit(1);
